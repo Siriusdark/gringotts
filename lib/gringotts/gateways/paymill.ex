@@ -342,6 +342,11 @@ defmodule Gringotts.Gateways.Paymill do
       |> set_params(body)
       |> handle_opts()
     end
+    def parse({:ok, %HTTPoison.Response{body: body, status_code: 403}}) do
+      body = Poison.decode!(body)
+      [status_code: 403, success: false]
+      |> parse_body(body)
+    end
     def parse(({:ok, %HTTPoison.Response{body: body, status_code: 409}})) do
       body = Poison.decode!(body)
       [status_code: 409, success: false]
@@ -361,7 +366,7 @@ defmodule Gringotts.Gateways.Paymill do
     defp set_success(opts, %{"transaction" => %{"response_code" => 20_000}}) do
       opts ++ [success: true]
     end
-    defp set_success(opts, %{"response_code" => 20000}) do
+    defp set_success(opts, %{"response_code" => 20_000}) do
       opts ++ [success: true]
     end
 
@@ -390,6 +395,11 @@ defmodule Gringotts.Gateways.Paymill do
     end
 
     #Status code
+    defp parse_status_code(opts, %{"status" => "failed", "response_code" => code}) do
+      response_msg = Map.get(@response_code, code, -1)
+
+      opts ++ [error_code: code, message: response_msg]
+    end
     defp parse_status_code(opts, %{"status" => "failed"} = body) do
       response_code = get_in(body, ["transaction", "response_code"])
       response_msg = Map.get(@response_code, response_code, -1)
