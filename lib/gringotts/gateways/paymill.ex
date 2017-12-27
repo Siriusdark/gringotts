@@ -359,6 +359,10 @@ defmodule Gringotts.Gateways.Paymill do
       opts ++ [message: error, success: false]
     end
 
+    defp set_success(opts, %{"status" => "deleted"}) do
+      opts ++ [success: true]
+    end
+
     defp set_success(opts, %{"status" => "failed"}) do
       opts ++ [success: false]
     end
