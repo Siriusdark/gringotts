@@ -2,12 +2,11 @@ defmodule Gringotts.Gateways.WireCardTest do
   use ExUnit.Case, async: false
 
   import Mock
-
   alias Gringotts.{
     CreditCard,
   }
-
-  alias Gringotts.Gateways.WireCard, as: Gateway
+  alias Gringotts.Gateways.WireCard, as: Wirecard
+  alias Gringotts.Gateways.AuthorizeNetMock, as: MockResponse
 
   @with authorization_guwid "C822580121385121429927"
   @with purchase_guwid      "C865402121385575982910"
@@ -184,7 +183,7 @@ defmodule Gringotts.Gateways.WireCardTest do
     end
   end
 
-  describe "system error in response in differnt request scenarios" do
+  describe "testing system error in response in differnt request scenarios" do
     @tag :pending
     test "with system error response" do      
     end
