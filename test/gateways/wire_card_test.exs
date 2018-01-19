@@ -11,7 +11,9 @@ defmodule Gringotts.Gateways.WireCardTest do
   @test_authorization_guwid "C822580121385121429927"
   @test_purchase_guwid      "C865402121385575982910"
   @test_capture_guwid       "C833707121385268439116"
-  @amount                   100
+
+  @amount Money.new(1, :EUR)
+  @bad_amount Money.new("0.9", :EUR)
   
   @card %CreditCard{
     number: "4200000000000000",
@@ -139,7 +141,7 @@ defmodule Gringotts.Gateways.WireCardTest do
       # capture
       with_mock HTTPoison, 
       [request: fn(_method, _url, _body, _headers) -> MockResponse.successful_authorization_response end] do
-        {:ok, response} = WireCard.capture(response_guwid, (@amount - 10), @options)
+        {:ok, response} = WireCard.capture(response_guwid, @bad_amount, @options)
         response_message = response["WIRECARD_BXML"]["W_RESPONSE"]["W_JOB"]["FNC_CC_PREAUTHORIZATION"]["CC_TRANSACTION"]["PROCESSING_STATUS"]["Info"]
         assert response_message =~ "THIS IS A DEMO TRANSACTION"
       end
@@ -159,7 +161,7 @@ defmodule Gringotts.Gateways.WireCardTest do
     test "with successful refund" do
       with_mock HTTPoison, 
       [request: fn(_method, _url, _body, _headers) -> MockResponse.successful_refund_response end] do
-        {:ok, response} = WireCard.refund(@amount - 10, @test_purchase_guwid, @options)
+        {:ok, response} = WireCard.refund(@bad_amount, @test_purchase_guwid, @options)
         response_message = response["WIRECARD_BXML"]["W_RESPONSE"]["W_JOB"]["FNC_CC_BOOKBACK"]["CC_TRANSACTION"]["PROCESSING_STATUS"]["Info"]
         assert response_message =~ "All good!"
       end
@@ -168,7 +170,7 @@ defmodule Gringotts.Gateways.WireCardTest do
     test "with failed refund" do
       with_mock HTTPoison, 
       [request: fn(_method, _url, _body, _headers) -> MockResponse.failed_refund_response end] do
-        {:ok, response} = WireCard.refund(@amount - 10, "TheIdentifcation", @options)
+        {:ok, response} = WireCard.refund(@bad_amount, "TheIdentifcation", @options)
         response_message = response["WIRECARD_BXML"]["W_RESPONSE"]["W_JOB"]["FNC_CC_BOOKBACK"]["CC_TRANSACTION"]["PROCESSING_STATUS"]["ERROR"]["Message"]
         assert response_message =~ "Not prudent"
       end
@@ -198,10 +200,6 @@ defmodule Gringotts.Gateways.WireCardTest do
   describe "store/2" do
     @tag :pending
     test "with store sets recurring transaction type to initial" do
-    end
-
-    @tag :pending
-    test "with store sets amount to 100 by default" do
     end
 
     @tag :pending
