@@ -93,6 +93,7 @@ defmodule Gringotts.Gateways.Paymill do
   alias Gringotts.Gateways.Paymill.ResponseHandler, as: ResponseParser
 
   @live_url "https://api.paymill.com/v2.1/"
+  @save_card_url "https://test-token.paymill.com/"
   @headers [{"Content-Type", "application/x-www-form-urlencoded"}]
 
   @doc """
@@ -136,7 +137,8 @@ defmodule Gringotts.Gateways.Paymill do
 
   PAYMILL allows partial captures and unlike many other gateways, and releases
   any remaining amount back to the payment source.
-  > Thus, the same pre-authorisation ID cannot be used to perform multiple captures.
+  > Thus, the same pre-authorisation ID **cannot** be used to perform multiple
+    captures.
 
   ## Example
 
@@ -165,8 +167,8 @@ defmodule Gringotts.Gateways.Paymill do
 
   ## Example
 
-  The following example shows how one would process a payment worth €42 in one-shot,
-  without (pre) authorization.
+  The following example shows how one would process a payment worth €42 in
+  one-shot, without (pre) authorization.
 
   ```
   iex> amount = %{value: Decimal.new(42), currency: "EUR"}
@@ -253,7 +255,7 @@ defmodule Gringotts.Gateways.Paymill do
   @spec save_card(CreditCard.t, keyword) :: Response
   defp save_card(card, options) do
     {:ok, %HTTPoison.Response{body: response}} = HTTPoison.get(
-        get_save_card_url(),
+        @save_card_url,
         get_headers(options),
         params: get_save_card_params(card, options))
 
@@ -306,8 +308,6 @@ defmodule Gringotts.Gateways.Paymill do
     [{"Authorization", "Basic #{Base.encode64(get_config(:private_key, options))}"}]
   end
 
-  defp get_save_card_url(), do: "https://test-token.paymill.com/"
-
   defp parse_card_response(response) do
     response
     |> String.replace(~r/jsonPFunction\(/, "")
@@ -321,7 +321,7 @@ defmodule Gringotts.Gateways.Paymill do
 
   defp commit(method, action, parameters, options) do
     method
-    |> HTTPoison.request(@live_url <> action, {:form, parameters}, get_headers(options), [])
+    |> HTTPoison.request(@live_url <> action, {:form, parameters}, get_headers(options))
     |> ResponseParser.parse
   end
 
@@ -438,36 +438,27 @@ defmodule Gringotts.Gateways.Paymill do
 
     def parse({:ok, %HTTPoison.Response{body: body, status_code: 200}}) do
       body = Poison.decode!(body)
-      [status_code: 200]
-      |> parse_body(body)
+      parse_body([status_code: 200], body)
     end
-    def parse({:ok, %HTTPoison.Response{body: body, status_code: 400}}) do
+    
+    def parse({:ok, %HTTPoison.Response{body: body, status_code: status_code}}) when status_code in [400, 404, 409] do
       body = Poison.decode!(body)
-      [status_code: 400, success: false]
-      |> set_params(body)
-      |> handle_error(body)
-      |> handle_opts
-    end
-    def parse({:ok, %HTTPoison.Response{body: body, status_code: 404}}) do
-      body = Poison.decode!(body)
-      [status_code: 404, success: false]
-      |> handle_error(body)
-      |> set_params(body)
-      |> handle_opts()
-    end
-    def parse({:ok, %HTTPoison.Response{body: body, status_code: 403}}) do
-      body = Poison.decode!(body)
-      [status_code: 403, success: false]
-      |> parse_body(body)
-    end
-    def parse(({:ok, %HTTPoison.Response{body: body, status_code: 409}})) do
-      body = Poison.decode!(body)
-      [status_code: 409, success: false]
+      [status_code: status_code, success: false]
       |> set_params(body)
       |> handle_error(body)
       |> handle_opts
     end
 
+    def parse({:ok, %HTTPoison.Response{body: body, status_code: 403}}) do
+      body = Poison.decode!(body)
+      [status_code: 403, success: false]
+      |> parse_body(body)
+    end
+
+    def parse({:error, %HTTPoison.Error{} = error}) do
+      {:error, Response.error(error_code: error.id, message: "HTTPoison says '#{error.reason}'.")}
+    end
+      
     defp set_success(opts, %{"error" => error}) do
       opts ++ [message: error, success: false]
     end
