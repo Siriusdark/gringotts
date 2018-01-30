@@ -380,6 +380,8 @@ defmodule Gringotts.Gateways.Monei do
   which can be used to effectively process _One-Click_ and _Recurring_ payments,
   and return a registration token for reference.
 
+  The registration token is available in the `Response.id` field.
+
   It is recommended to associate these details with a "Customer" by passing
   customer details in the `opts`.
 
@@ -394,7 +396,8 @@ defmodule Gringotts.Gateways.Monei do
   future use.
 
       iex> card = %Gringotts.CreditCard{first_name: "Harry", last_name: "Potter", number: "4200000000000000", year: 2099, month: 12, verification_code:  "123", brand: "VISA"}
-      iex> {:ok, store_result} = Gringotts.store(Gringotts.Gateways.Monei, card, [])
+      iex> {:ok, store_result} = Gringotts.store(Gringotts.Gateways.Monei, card)
+      iex> store_result.id # This is the registration token
   """
   @spec store(CreditCard.t(), keyword) :: {:ok | :error, Response}
   def store(%CreditCard{} = card, opts) do
@@ -468,6 +471,8 @@ defmodule Gringotts.Gateways.Monei do
 
   # Makes the request to MONEI's network.
   @spec commit(atom, String.t(), keyword, keyword) :: {:ok | :error, Response}
+  # params -> prevalidated
+  # opts -> may be invalid or may neeed expansion
   defp commit(method, endpoint, params, opts) do
     auth_params = [
       "authentication.userId": opts[:config][:userId],
@@ -477,7 +482,7 @@ defmodule Gringotts.Gateways.Monei do
 
     url = "#{base_url(opts)}/#{version(opts)}/#{endpoint}"
 
-    case expand_params(opts, params[:paymentType]) do
+    case expand_params(Keyword.delete(opts, :config), params[:paymentType]) do
       {:error, reason} ->
         {:error, Response.error(description: reason)}
 
@@ -541,16 +546,16 @@ defmodule Gringotts.Gateways.Monei do
             else: {:halt, {:error, "Invalid currency"}}
 
         :customer ->
-          {:cont, acc ++ make("customer", v)}
+          {:cont, acc ++ make(action_type, "customer", v)}
 
         :merchant ->
-          {:cont, acc ++ make("merchant", v)}
+          {:cont, acc ++ make(action_type, "merchant", v)}
 
         :billing ->
-          {:cont, acc ++ make("billing", v)}
+          {:cont, acc ++ make(action_type, "billing", v)}
 
         :shipping ->
-          {:cont, acc ++ make("shipping", v)}
+          {:cont, acc ++ make(action_type, "shipping", v)}
 
         :invoice_id ->
           {:cont, [{"merchantInvoiceId", v} | acc]}
@@ -562,23 +567,16 @@ defmodule Gringotts.Gateways.Monei do
           {:cont, [{"transactionCategory", v} | acc]}
 
         :shipping_customer ->
-          {:cont, acc ++ make("shipping.customer", v)}
+          {:cont, acc ++ make(action_type, "shipping.customer", v)}
 
         :custom ->
           {:cont, acc ++ make_custom(v)}
 
         :register ->
-          {
-            :cont,
-            if action_type in ["PA", "DB"] do
-              [{"createRegistration", true} | acc]
-            else
-              acc
-            end
-          }
+          {:cont, acc ++ make(action_type, :register, v)}
 
-        _ ->
-          {:cont, acc}
+        unsupported ->
+          {:halt, {:error, "Unsupported optional param '#{unsupported}'"}}
       end
     end)
   end
@@ -612,8 +610,14 @@ defmodule Gringotts.Gateways.Monei do
     end
   end
 
-  defp make(prefix, param) do
-    Enum.into(param, [], fn {k, v} -> {"#{prefix}.#{k}", v} end)
+  defp make(action_type, _prefix, _param) when action_type in ["CP", "RF", "RV"], do: []
+  defp make(action_type, prefix, param) do
+    case prefix do
+      :register ->
+        if action_type in ["PA", "DB"], do: [createRegistration: true], else: []
+
+      _ -> Enum.into(param, [], fn {k, v} -> {"#{prefix}.#{k}", v} end)
+    end
   end
 
   defp make_custom(custom_map) do
