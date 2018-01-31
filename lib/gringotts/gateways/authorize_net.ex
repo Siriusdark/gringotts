@@ -91,7 +91,7 @@ defmodule Gringotts.Gateways.AuthorizeNet do
 
   ```
   iex> alias Gringotts.{Response, CreditCard, Gateways.AuthorizeNet}
-  iex> amount = %{value: Decimal.new(20.0), currency: "USD"}
+  iex> amount = Money.new(20, :USD)
   iex> card = %CreditCard{number: "5424000000000015", year: 2099, month: 12, verification_code: "999"}
   ```
 
@@ -168,7 +168,7 @@ defmodule Gringotts.Gateways.AuthorizeNet do
       ]
 
   ## Example
-      iex> amount = %{value: Decimal.new(20.0), currency: "USD"}
+      iex> amount = Money.new(20, :USD)
       iex> opts = [
         ref_id: "123456",
         order: %{invoice_number: "INV-12345", description: "Product Description"},
@@ -229,7 +229,7 @@ defmodule Gringotts.Gateways.AuthorizeNet do
 
 
   ## Example
-      iex> amount = %{value: Decimal.new(20.0), currency: "USD"}
+      iex> amount = Money.new(20, :USD)
       iex> opts = [
         ref_id: "123456",
         order: %{invoice_number: "INV-12345", description: "Product Description"},
@@ -280,7 +280,7 @@ defmodule Gringotts.Gateways.AuthorizeNet do
       iex> opts = [
         ref_id: "123456"
       ]
-      iex> amount = %{value: Decimal.new(20.0), currency: "USD"}
+      iex> amount = Money.new(20, :USD)
       iex> id = "123456"
       iex> result = Gringotts.capture(Gringotts.Gateways.AuthorizeNet, id, amount, opts)
   """
@@ -311,7 +311,7 @@ defmodule Gringotts.Gateways.AuthorizeNet do
         ref_id: "123456"
       ]
       iex> id = "123456"
-      iex> amount = %{value: Decimal.new(20.0), currency: "USD"}
+      iex> amount = Money.new(20, :USD)
       iex> result = Gringotts.refund(Gringotts.Gateways.AuthorizeNet, amount, id, opts)
   """
   @spec refund(Money.t(), String.t(), Keyword.t()) :: {:ok | :error, Response}
