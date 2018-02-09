@@ -74,8 +74,8 @@ defmodule Gringotts.Gateways.Trexle do
   iex> card = %CreditCard{
                first_name: "Harry",
                last_name: "Potter",
-               number: "4200000000000000",
-               year: 2099, month: 12,
+               number: "4000056655665556",
+               year: 2068, month: 12,
                verification_code: "123",
                brand: "VISA"}
   iex> address = %Address{
@@ -351,17 +351,23 @@ defmodule Gringotts.Gateways.Trexle do
 
     {
       :ok,
-      Response.success(authorization: token, message: message, raw: results, status_code: code)
+      %Response{id: token, message: message, raw: body, status_code: code}
     }
   end
 
   defp respond({:ok, %{status_code: status_code, body: body}}) do
     {:ok, results} = decode(body)
     detail = results["detail"]
-    {:error, Response.error(status_code: status_code, message: detail, raw: results)}
+    {:error, %Response{status_code: status_code, message: detail, reason: detail, raw: body}}
   end
 
   defp respond({:error, %HTTPoison.Error{} = error}) do
-    {:error, Response.error(code: error.id, message: "HTTPoison says '#{error.reason}'")}
+    {
+      :error,
+      %Response{
+        reason: "network related failure",
+        message: "HTTPoison says '#{error.reason}' [ID: #{error.id || "nil"}]"
+      }
+    }
   end
 end
