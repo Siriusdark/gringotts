@@ -431,7 +431,7 @@ defmodule Gringotts.Gateways.Cams do
       decoded_body = URI.decode_query(body)
       {street, zip_code} = @avs_code_translator[decoded_body["avsresponse"]]
       gateway_code = decoded_body["response_code"]
-
+      message = decoded_body["responsetext"]
       response = %Response{
         status_code: 200,
         id: decoded_body["transactionid"],
@@ -442,7 +442,11 @@ defmodule Gringotts.Gateways.Cams do
         raw: body
       }
 
-      {successful?(gateway_code), response}
+      if successful?(gateway_code) do
+        {:ok, response}
+      else
+        {:error, %{response | reason: message}}
+      end
     end
 
     def parse({:ok, %HTTPoison.Response{body: body, status_code: 400}}) do
@@ -464,7 +468,7 @@ defmodule Gringotts.Gateways.Cams do
       response = %Response{
         status_code: 404,
         raw: body,
-        message: message
+        reason: message
       }
 
       {:error, response}
@@ -482,7 +486,7 @@ defmodule Gringotts.Gateways.Cams do
     end
 
     defp successful?(gateway_code) do
-      if gateway_code == "100", do: :ok, else: :error
+      gateway_code == "100"
     end
   end
 end
